@@ -1,0 +1,31 @@
+cabal-version:      2.4
+name:               plutus-repo
+version:            3.0.0.0
+
+license: Apache-2.0
+
+author:             Sireto
+maintainer:         Sireto
+
+-- A copyright notice.
+-- copyright:
+-- category:
+-- extra-source-files: CHANGELOG.md
+
+library starter-plutus
+  exposed-modules:
+    InContract
+  hs-source-dirs: src
+  build-depends:
+      base  -any
+    , plutus-tx    
+    , cardano-ledger-alonzo
+    , plutus-ledger-api
+    , plutus-tx-plugin
+    , plutus-core
+    , aeson
+    , bytestring
+    , cardano-api 
+    , serialise
+    , kuber
+    , base16-bytestring
