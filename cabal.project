@@ -39,4 +39,4 @@ package cryptonite
 source-repository-package
   type: git
   location: https://github.com/dquadrant/kuber
-  tag: 105353e962de36f581dd1260e9e0d410b57f79e9
+  tag: v4.0.0-rc1

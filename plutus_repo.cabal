@@ -15,28 +15,41 @@ maintainer:         Sireto
 library starter-plutus
   exposed-modules:
     InContract
+    MultiSig
   hs-source-dirs: src
   build-depends:
       base  -any
-    , plutus-tx    
+    , plutus-tx
     , cardano-ledger-alonzo
     , plutus-ledger-api
     , plutus-tx-plugin
     , plutus-core
     , aeson
     , bytestring
-    , cardano-api 
     , serialise
-    , kuber
     , base16-bytestring
 
-executable cbor-writer
+executable SC
     main-is: Main.hs
+    other-modules:
+      Buildy
+      Rmy.Rdemy
+      Rmy.LockAtSc
     hs-source-dirs: app
     build-depends:
         base
+        , text
+        , kuber
+        , aeson
+        , cardano-api
+        , containers
         , bytestring
         , base16-bytestring
+
+        , plutus-core
+        , plutus-ledger-api
+        , plutus-tx
+        , plutus-tx-plugin
+
         , starter-plutus
     default-language: Haskell2010
-
