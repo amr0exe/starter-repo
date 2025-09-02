@@ -1,4 +1,3 @@
-
 module Rmy.LockAtSc where
 
 import Cardano.Api

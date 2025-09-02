@@ -14,13 +14,14 @@ maintainer:         Sireto
 
 library starter-plutus
   exposed-modules:
-    InContract
+    --InContract
     MultiSig
   hs-source-dirs: src
   build-depends:
       base  -any
     , plutus-tx
     , cardano-ledger-alonzo
+    , cardano-api
     , plutus-ledger-api
     , plutus-tx-plugin
     , plutus-core

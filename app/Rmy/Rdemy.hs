@@ -45,6 +45,14 @@ readPlutusFile path = do
         Right script -> return script
 
 
+utxoHasDatumHash :: Hash ScriptData -> TxOut CtxUTxO era  -> Bool
+utxoHasDatumHash targetHash (TxOut _ _ datum _) =
+    case datum of
+        TxOutDatumNone -> False
+        TxOutDatumHash _ h -> h == targetHash
+        TxOutDatumInline _ sd -> hashScriptDataBytes sd == targetHash
+
+
 -- query utxos
 -- for building transaction
 -- reference inputs in transaction
@@ -61,15 +69,19 @@ redeemFromMultiSig
 redeemFromMultiSig multiSigScript scriptAddress multiSigParams requiredSigners collectorWalletKey collectorWalletAdress = do
     (UTxO contractUTxos) <- kQueryUtxoByAddress (Set.singleton (addressInEraToAddressAny scriptAddress))
 
-    if Map.null contractUTxos
-        then kError LibraryError "No UTxOs found at the script address."
+    -- datum check
+    let targetDatum = unsafeHashableScriptData $ fromPlutusData $ toData multiSigParams
+    let targetDatumHash = hashScriptDataBytes targetDatum
+
+    let matchingDatum = Map.filter (utxoHasDatumHash targetDatumHash) contractUTxos
+
+    if Map.null matchingDatum
+        then kError LibraryError "No UTxOs found with specified datum."
         else do
-            let datum :: HashableScriptData
-                datum = unsafeHashableScriptData $ fromPlutusData $ toData multiSigParams
-            let redeemer :: HashableScriptData
-                redeemer = unsafeHashableScriptData $ fromPlutusData $ toData ()
+            let redeemer = unsafeHashableScriptData $ fromPlutusData $ toData ()
+
             let txBuilder =
-                    mconcat (map (\(txin, txout) -> txRedeemUtxoWithDatum txin txout multiSigScript datum redeemer Nothing) (Map.toList contractUTxos))
+                    mconcat (map (\(txin, txout) -> txRedeemUtxo txin txout multiSigScript redeemer Nothing) (Map.toList matchingDatum))
                     <> mconcat (map txSign requiredSigners)
                     <> txWalletSignKey collectorWalletKey
                     <> txChangeAddress collectorWalletAdress
