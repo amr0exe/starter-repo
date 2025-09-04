@@ -4,26 +4,36 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module MultiSig where
 
+import GHC.Generics (Generic)
+import Prelude (Show)
+
+import PlutusTx (compile, unstableMakeIsData, makeLift, liftCode, unsafeApplyCode)
+import PlutusTx.Code (CompiledCode)
+
 import PlutusLedgerApi.Common (BuiltinData, serialiseCompiledCode, FromData, fromBuiltinData)
-import PlutusLedgerApi.V3 (PubKeyHash, scriptContextTxInfo, unsafeFromBuiltinData, Datum (getDatum))
+import PlutusLedgerApi.V3 (PubKeyHash, scriptContextTxInfo, unsafeFromBuiltinData)
 import PlutusLedgerApi.V3.Contexts (TxInfo, ScriptContext, txInfoSignatories)
-import PlutusTx (compile, CompiledCode, unstableMakeIsData)
-import PlutusTx.List (filter, elem)
-import PlutusTx.Foldable (length)
-import Data.ByteString.Short (ShortByteString)
-import Cardano.Api.Shelley (PlutusScript, PlutusScriptV3, PlutusScript(PlutusScriptSerialised))
+
 import qualified PlutusTx.Builtins.Internal as BI
 import PlutusTx.Prelude
+import PlutusTx.List (filter, elem)
+import PlutusTx.Foldable (length)
+
+import Cardano.Api.Shelley (PlutusScript, PlutusScriptV3, PlutusScript(PlutusScriptSerialised))
+import PlutusCore.Version (plcVersion110)
 
 data MsD = MsD
     { signatories :: [PubKeyHash]
-    , min_num :: Integer
-    }
-unstableMakeIsData ''MsD
+    , min_num     :: Integer
+    } deriving (Show, Generic)
 
+PlutusTx.unstableMakeIsData ''MsD
+PlutusTx.makeLift ''MsD
 
 {-# INLINABLE constrArgs #-}
 constrArgs :: BuiltinData -> BI.BuiltinList BuiltinData
@@ -36,8 +46,8 @@ parseData d s = case fromBuiltinData  d of
   _      -> traceError s
 
 {-# INLINABLE mkValidator #-}
-mkValidator :: MsD -> BuiltinData -> ScriptContext -> Bool
-mkValidator params _ ctx = 
+mkValidator :: MsD -> () -> () -> ScriptContext -> Bool
+mkValidator params _ _ ctx =
     traceIfFalse "not enough signatories" (countSigs >= req_no)
   where
     info :: TxInfo
@@ -56,34 +66,16 @@ mkValidator params _ ctx =
     countSigs = length (filter (`elem` req_sigs) crnt_sigs)
 
 {-# INLINABLE mkValidatorUntyped #-}
-mkValidatorUntyped :: BuiltinData -> BuiltinUnit
-mkValidatorUntyped ctx = check (mkValidator dat rdm newSc)
+mkValidatorUntyped :: MsD -> BuiltinData -> BuiltinUnit
+mkValidatorUntyped pMSD ctx = check (mkValidator pMSD () () newSc)
     where
-        context = constrArgs ctx -- turn to BuiltinData
-
         newSc = unsafeFromBuiltinData ctx
 
-        redeemerFollowedByScriptInfo :: BI.BuiltinList BuiltinData
-        redeemerFollowedByScriptInfo = BI.tail context
-
-        redeemerBuiltinData :: BuiltinData
-        redeemerBuiltinData = BI.head redeemerFollowedByScriptInfo
-
-        scriptInfoData :: BuiltinData
-        scriptInfoData = BI.head (BI.tail redeemerFollowedByScriptInfo)
-
-        datumData :: BuiltinData
-        datumData = BI.head (constrArgs (BI.head (BI.tail (constrArgs scriptInfoData))))
-
-        rdm :: BuiltinData 
-        rdm = parseData redeemerBuiltinData "Invalid redeemer Type"
-
-        dat :: MsD
-        dat = parseData (getDatum (unsafeFromBuiltinData datumData)) "Invalid Datum type"
+cmpCode :: MsD -> CompiledCode(BuiltinData -> BuiltinUnit)
+cmpCode param =
+    $$(compile [|| mkValidatorUntyped ||])
+        `unsafeApplyCode` liftCode plcVersion110 param
 
 
-cmpCode :: CompiledCode (BuiltinData -> BuiltinUnit)
-cmpCode = $$(compile [|| mkValidatorUntyped ||]) 
-
-validatorSerialized :: PlutusScript PlutusScriptV3 
-validatorSerialized = PlutusScriptSerialised (serialiseCompiledCode cmpCode)
+validatorSerialized :: MsD -> PlutusScript PlutusScriptV3
+validatorSerialized param = PlutusScriptSerialised (serialiseCompiledCode (cmpCode param))

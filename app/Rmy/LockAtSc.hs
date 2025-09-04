@@ -11,11 +11,10 @@ import MultiSig (MsD(..))
 lockAtScript
     :: AddressInEra ConwayEra
     -> Value
-    -> MsD
     -> SigningKey PaymentKey
     -> Kontract ChainConnectInfo w FrameworkError TxBuilder
-lockAtScript scriptAddr value datum walletSkey = do
-    let datumForScript = unsafeHashableScriptData $ fromPlutusData $ toData datum
+lockAtScript scriptAddr value walletSkey = do
+    let datumForScript = unsafeHashableScriptData $ fromPlutusData $ toData ()
     let txBuilder = txPayToScriptWithData scriptAddr value datumForScript <> txWalletSignKey walletSkey
     pure txBuilder
 

@@ -1,1 +1,6 @@
 dist-newstyle
+
+txbuilder.json
+InContract.json
+InContract.plutus
+*.skey

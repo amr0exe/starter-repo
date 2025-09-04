@@ -61,27 +61,26 @@ utxoHasDatumHash targetHash (TxOut _ _ datum _) =
 redeemFromMultiSig
     :: PlutusScript PlutusScriptV3
     -> AddressInEra ConwayEra
-    -> MsD
     -> [SigningKey PaymentKey]
     -> SigningKey PaymentKey
     -> AddressInEra ConwayEra
     -> Kontract ChainConnectInfo w FrameworkError TxBuilder
-redeemFromMultiSig multiSigScript scriptAddress multiSigParams requiredSigners collectorWalletKey collectorWalletAdress = do
+redeemFromMultiSig multiSigScript scriptAddress requiredSigners collectorWalletKey collectorWalletAdress = do
     (UTxO contractUTxos) <- kQueryUtxoByAddress (Set.singleton (addressInEraToAddressAny scriptAddress))
 
-    -- datum check
-    let targetDatum = unsafeHashableScriptData $ fromPlutusData $ toData multiSigParams
-    let targetDatumHash = hashScriptDataBytes targetDatum
+    -- -- datum check
+    -- let targetDatum = unsafeHashableScriptData $ fromPlutusData $ toData multiSigParams
+    -- let targetDatumHash = hashScriptDataBytes targetDatum
 
-    let matchingDatum = Map.filter (utxoHasDatumHash targetDatumHash) contractUTxos
+    -- let matchingDatum = Map.filter (utxoHasDatumHash targetDatumHash) contractUTxos
 
-    if Map.null matchingDatum
-        then kError LibraryError "No UTxOs found with specified datum."
+    if Map.null contractUTxos
+        then kError LibraryError "No UTxOs found with at ScriptAddress."
         else do
             let redeemer = unsafeHashableScriptData $ fromPlutusData $ toData ()
 
             let txBuilder =
-                    mconcat (map (\(txin, txout) -> txRedeemUtxo txin txout multiSigScript redeemer Nothing) (Map.toList matchingDatum))
+                    mconcat (map (\(txin, txout) -> txRedeemUtxo txin txout multiSigScript redeemer Nothing) (Map.toList contractUTxos))
                     <> mconcat (map txSign requiredSigners)
                     <> txWalletSignKey collectorWalletKey
                     <> txChangeAddress collectorWalletAdress
